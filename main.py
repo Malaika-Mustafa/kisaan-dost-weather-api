@@ -18,16 +18,7 @@ app = FastAPI(title="Kisan Dost Weather API (Urdu)", version="1.0")
 KARACHI_TZ = ZoneInfo("Asia/Karachi")
 UTC_TZ = ZoneInfo("UTC")
 
-def get_location():
-    try:
-        data = requests.get("https://ipinfo.io/json", timeout=5).json()
-        lat, lon = map(float, data["loc"].split(","))
-        city = data.get("city", "نامعلوم مقام")
-        return lat, lon, city
-    except Exception:
-        return 24.8607, 67.0011, "کراچی"
-
-def get_weather_forecast(lat, lon, days=FORECAST_DAYS):
+def get_weather_forecast(lat: float, lon: float, days=FORECAST_DAYS):
     try:
         url = f"https://api.openweathermap.org/data/2.5/forecast?lat={lat}&lon={lon}&appid={API_KEY}&units=metric"
         response = requests.get(url, timeout=10)
@@ -41,12 +32,16 @@ def get_weather_forecast(lat, lon, days=FORECAST_DAYS):
 
 def process_weather_data(data, days):
     forecast_list = []
-    end_time = datetime.now(UTC_TZ).astimezone(KARACHI_TZ) + timedelta(days=days)
+    today = datetime.now(KARACHI_TZ).date()
+    max_date = today + timedelta(days=days)
+
     for item in data.get("list", []):
         dt_utc = datetime.fromtimestamp(item["dt"], tz=UTC_TZ)
         dt_local = dt_utc.astimezone(KARACHI_TZ)
-        if dt_local > end_time:
+
+        if dt_local.date() > max_date:
             continue
+
         forecast_list.append({
             "تاریخ": dt_local.strftime("%Y-%m-%d"),
             "وقت": dt_local.strftime("%H:%M"),
@@ -93,11 +88,9 @@ def root():
     return {"پیغام": "کسان دوست موسم API چل رہی ہے", "حالت": "فعال"}
 
 @app.get("/api/weather")
-def get_weather(lat: float = Query(None), lon: float = Query(None)):
-    if lat is None or lon is None:
-        lat, lon, city = get_location()
-    else:
-        city = "منتخب مقام"
+def get_weather(lat: float = Query(24.8607), lon: float = Query(67.0011)):
+    # Default Karachi coordinates if none provided
+    city = "کراچی" if lat == 24.8607 and lon == 67.0011 else "منتخب مقام"
 
     weather_data = get_weather_forecast(lat, lon)
     final_output = []
